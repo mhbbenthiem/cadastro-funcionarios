@@ -1,0 +1,19 @@
+# Dependências do Node (Pesadas)
+node_modules/
+*/node_modules/
+
+# Variáveis de Ambiente e Chaves de Segurança
+.env
+*/.env
+*.env.local
+
+# Pastas de Build e Compilação
+dist/
+build/
+*/dist/
+*/build/
+
+# Logs e Arquivos do Sistema/Editor
+*.log
+.DS_Store
+.vscode/
