@@ -4,18 +4,24 @@ export interface CursoSuperior {
   situacao?: string;
   tipo_instituicao?: string;
   nome_curso?: string;
-  ano_inicio?: number | string;
-  ano_conclusao?: number | string;
+  ano_inicio?: number | string | null;
+  ano_conclusao?: number | string | null;
 }
 
 export interface FuncionarioFormData {
+  // Dados Pessoais
   nome_completo: string;
   data_nascimento?: string;
   sexo?: string;
   cor_raca?: string;
   email?: string;
-  matricula?: string;
-  turno?: string;
+  
+  // Turnos e Matrículas (Novos)
+  turno_manha?: boolean;
+  turno_tarde?: boolean;
+  matricula_manha?: string;
+  matricula_tarde?: string;
+
   telefone_celular?: string;
   nome_mae?: string;
   nacionalidade?: string;
@@ -23,8 +29,10 @@ export interface FuncionarioFormData {
   uf_naturalidade?: string;
   municipio_naturalidade?: string;
 
+  // Saúde / Deficiência
   deficiencias: string[];
 
+  // Endereço e Localização
   cep?: string;
   uf?: string;
   municipio?: string;
@@ -35,6 +43,7 @@ export interface FuncionarioFormData {
   zona_residencial?: string;
   localizacao_diferenciada?: string;
 
+  // Documentação
   rg_numero?: string;
   rg_data_expedicao?: string;
   rg_complemento?: string;
@@ -42,18 +51,22 @@ export interface FuncionarioFormData {
   rg_orgao_emissor?: string;
   cpf: string;
 
+  // Escolaridade
   escolaridade_nivel?: string;
   ensino_medio_tipo?: string;
 
-  formacao_pedagogica: string[];
+  // Cursos Superiores
+  cursos_superiores: CursoSuperior[];
 
+  // Formações / Cursos
+  formacao_pedagogica: string[];
+  
   pos_graduacao_tipo?: string;
   pos_graduacao_area?: string;
-  pos_graduacao_ano_conclusao?: number | string;
+  pos_graduacao_ano_conclusao?: number | string | null;
 
   cursos_especificos: string[];
 
+  // Situação Funcional
   situacao_funcional?: string;
-
-  cursos_superiores: CursoSuperior[];
 }

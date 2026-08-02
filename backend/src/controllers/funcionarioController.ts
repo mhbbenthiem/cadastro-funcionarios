@@ -2,14 +2,30 @@ import { Request, Response } from 'express';
 import { supabase } from '../config/supabase';
 import { FuncionarioInput } from '../types/funcionario';
 
+// Função auxiliar para converter "" (texto vazio) em null em todo o objeto
+const limparCamposVazios = (obj: any): any => {
+  if (Array.isArray(obj)) {
+    return obj.map(limparCamposVazios);
+  } else if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj).reduce((acc: any, key: string) => {
+      acc[key] = limparCamposVazios(obj[key]);
+      return acc;
+    }, {});
+  } else if (obj === '') {
+    return null; // Converte string vazia em null (aceito pelo PostgreSQL)
+  }
+  return obj;
+};
+
 export const cadastrarFuncionario = async (req: Request, res: Response): Promise<void> => {
   try {
-    const data: FuncionarioInput = req.body;
+    // 1. Limpa o formulário limpando todas as strings vazias para 'null'
+    const dataTratada: FuncionarioInput = limparCamposVazios(req.body);
 
-    // Separar os cursos superiores dos dados principais do funcionário
-    const { cursos_superiores, ...dadosFuncionario } = data;
+    // 2. Separa os cursos superiores dos dados principais
+    const { cursos_superiores, ...dadosFuncionario } = dataTratada;
 
-    // 1. Inserir na tabela 'funcionarios'
+    // 3. Inserir na tabela 'funcionarios'
     const { data: novoFuncionario, error: errFuncionario } = await supabase
       .from('funcionarios')
       .insert([dadosFuncionario])
@@ -17,14 +33,14 @@ export const cadastrarFuncionario = async (req: Request, res: Response): Promise
       .single();
 
     if (errFuncionario) {
-      if (errFuncionario.code === '23505') { // Erro de duplicidade no PostgreSQL
+      if (errFuncionario.code === '23505') { // Duplicidade de CPF
         res.status(400).json({ error: 'Já existe um funcionário cadastrado com este CPF.' });
         return;
       }
       throw errFuncionario;
     }
 
-    // 2. Se houver cursos superiores informados, inserir na tabela 'cursos_superiores'
+    // 4. Se houver cursos superiores informados, inserir na tabela 'cursos_superiores'
     if (cursos_superiores && cursos_superiores.length > 0) {
       const cursosComId = cursos_superiores.map(curso => ({
         ...curso,

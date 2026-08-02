@@ -3,23 +3,52 @@ import axios from 'axios';
 import './App.css';
 import { FuncionarioFormData, CursoSuperior } from './types/funcionario';
 
-const API_URL = 'http://localhost:3001/api/funcionarios';
+const OPCOES_DEFICIENCIAS = [
+  'Cegueira', 'Baixa visão', 'Surdez', 'Deficiência auditiva',
+  'Surdocegueira', 'Deficiência Física', 'Deficiência Intelectual',
+  'Deficiência múltipla', 'Altas Habilidades/Superdotação',
+  'Transtorno do Espectro Autista', 'NÃO TEM'
+];
 
-const initialFormState: FuncionarioFormData = {
+const OPCOES_FORMACAO_PEDAGOGICA = [
+  'Química', 'Física', 'Matemática', 'Biologia', 'Ciências',
+  'Língua/Literatura Portuguesa', 'Língua/Literatura estrangeira - Inglês',
+  'Língua/Literatura estrangeira – Espanhol', 'Língua/Literatura estrangeira – outra',
+  'Arte (Educação Artística, Teatro, Dança, Música, Arte Plásticas e outras)',
+  'Educação Física', 'História', 'Geografia', 'Filosofia',
+  'Informática/Computação', 'Áreas do conhecimento profissionalizantes',
+  'Libras', 'Áreas do conhecimento pedagógicas', 'Ensino religioso',
+  'Língua indígena', 'Estudos Sociais', 'Sociologia',
+  'Língua/Literatura estrangeira – Francês', 'Língua Portuguesa como Segunda Língua',
+  'Estágio curricular supervisionado', 'Outras Áreas do conhecimento'
+];
+
+const OPCOES_CURSOS_ESPECIFICOS = [
+  'Creche (0 a 3 anos)', 'Pré-Escola(4 e 5 anos)', 'Anos iniciais do ensino fundamental',
+  'Anos finais do ensino fundamental', 'Ensino Médio', 'Educação de jovens e adultos',
+  'Educação Especial', 'Educação Indígena', 'Educação do campo',
+  'Educação ambiental', 'Educação em direitos humanos', 'Gênero e diversidade sexual',
+  'Direitos da criança e adolescentes', 'Educ. p/ as rel.étnico-raciais e hist..cult,Afro-Brasileira/Africana',
+  'Gestão escolar', 'Outros', 'Nenhum'
+];
+
+const estadoInicial: FuncionarioFormData = {
   nome_completo: '',
   data_nascimento: '',
   sexo: '',
   cor_raca: '',
   email: '',
-  matricula: '',
-  turno: '',
+  turno_manha: false,
+  turno_tarde: false,
+  matricula_manha: '',
+  matricula_tarde: '',
   telefone_celular: '',
   nome_mae: '',
   nacionalidade: 'Brasileira',
   pais_origem: 'Brasil',
   uf_naturalidade: '',
   municipio_naturalidade: '',
-  deficiencias: [],
+  deficiencias: ['NÃO TEM'],
   cep: '',
   uf: '',
   municipio: '',
@@ -27,7 +56,7 @@ const initialFormState: FuncionarioFormData = {
   bairro: '',
   numero: '',
   complemento: '',
-  zona_residencial: '',
+  zona_residencial: 'Urbana',
   localizacao_diferenciada: 'Não está em localização diferenciada',
   rg_numero: '',
   rg_data_expedicao: '',
@@ -37,299 +66,502 @@ const initialFormState: FuncionarioFormData = {
   cpf: '',
   escolaridade_nivel: '',
   ensino_medio_tipo: '',
+  cursos_superiores: [{ uf: '', instituicao: '', situacao: '', tipo_instituicao: '', nome_curso: '', ano_inicio: '', ano_conclusao: '' }],
   formacao_pedagogica: [],
-  pos_graduacao_tipo: '',
+  pos_graduacao_tipo: 'Não tem pós-graduação concluída',
   pos_graduacao_area: '',
   pos_graduacao_ano_conclusao: '',
   cursos_especificos: [],
-  situacao_funcional: '',
-  cursos_superiores: []
+  situacao_funcional: ''
 };
 
-function App() {
-  const [formData, setFormData] = useState<FuncionarioFormData>(initialFormState);
-  const [status, setStatus] = useState<{ message: string; type: 'success' | 'error' | '' }>({ message: '', type: '' });
-  const [loading, setLoading] = useState(false);
+export const App: React.FC = () => {
+  const [formData, setFormData] = useState<FuncionarioFormData>(estadoInicial);
+  const [mensagem, setMensagem] = useState<{ tipo: 'sucesso' | 'erro'; texto: string } | null>(null);
 
-  // Manipulador de inputs simples (text, date, select)
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  // Manipulador de checkboxes de múltiplas escolhas (Arrays)
-  const handleCheckboxArray = (arrayName: 'deficiencias' | 'formacao_pedagogica' | 'cursos_especificos', value: string) => {
-    setFormData(prev => {
-      const list = prev[arrayName];
-      const updatedList = list.includes(value)
-        ? list.filter(item => item !== value)
-        : [...list, value];
-      return { ...prev, [arrayName]: updatedList };
-    });
-  };
-
-  // Manipulação de Cursos Superiores (Adicionar, remover e atualizar)
-  const handleAddCurso = () => {
-    if (formData.cursos_superiores.length < 3) {
-      setFormData(prev => ({
-        ...prev,
-        cursos_superiores: [
-          ...prev.cursos_superiores,
-          { uf: '', instituicao: '', situacao: '', tipo_instituicao: '', nome_curso: '', ano_inicio: '', ano_conclusao: '' }
-        ]
-      }));
+    const { name, value, type } = e.target;
+    if (type === 'checkbox') {
+      const target = e.target as HTMLInputElement;
+      setFormData(prev => ({ ...prev, [name]: target.checked }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
-  const handleRemoveCurso = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      cursos_superiores: prev.cursos_superiores.filter((_, i) => i !== index)
-    }));
+  // Gerenciador de Deficiências
+  const handleDeficienciaChange = (opcao: string) => {
+    const atuais = formData.deficiencias || [];
+    if (opcao === 'NÃO TEM') {
+      setFormData({ ...formData, deficiencias: ['NÃO TEM'] });
+      return;
+    }
+    const semNaoTem = atuais.filter(item => item !== 'NÃO TEM');
+    if (semNaoTem.includes(opcao)) {
+      const novas = semNaoTem.filter(item => item !== opcao);
+      setFormData({ ...formData, deficiencias: novas.length === 0 ? ['NÃO TEM'] : novas });
+    } else {
+      setFormData({ ...formData, deficiencias: [...semNaoTem, opcao] });
+    }
   };
 
-  const handleCursoChange = (index: number, field: keyof CursoSuperior, value: string) => {
-    setFormData(prev => {
-      const novosCursos = [...prev.cursos_superiores];
-      novosCursos[index] = { ...novosCursos[index], [field]: value };
-      return { ...prev, cursos_superiores: novosCursos };
-    });
+  // Gerenciador de Formação Pedagógica (Máximo 3)
+  const handleFormacaoPedagogicaChange = (opcao: string) => {
+    const atuais = formData.formacao_pedagogica || [];
+    if (atuais.includes(opcao)) {
+      setFormData({ ...formData, formacao_pedagogica: atuais.filter(item => item !== opcao) });
+    } else {
+      if (atuais.length >= 3) {
+        alert('Você só pode selecionar no máximo 3 opções de Formação Pedagógica.');
+        return;
+      }
+      setFormData({ ...formData, formacao_pedagogica: [...atuais, opcao] });
+    }
   };
 
-  // Envio do Formulário
+  // Gerenciador de Cursos Específicos
+  const handleCursosEspecificosChange = (opcao: string) => {
+    const atuais = formData.cursos_especificos || [];
+    if (opcao === 'Nenhum') {
+      setFormData({ ...formData, cursos_especificos: ['Nenhum'] });
+      return;
+    }
+    const semNenhum = atuais.filter(item => item !== 'Nenhum');
+    if (semNenhum.includes(opcao)) {
+      setFormData({ ...formData, cursos_especificos: semNenhum.filter(item => item !== opcao) });
+    } else {
+      setFormData({ ...formData, cursos_especificos: [...semNenhum, opcao] });
+    }
+  };
+
+  // Cursos Superiores Dinâmicos
+  const handleCursoChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    const novosCursos = [...formData.cursos_superiores];
+    novosCursos[index] = { ...novosCursos[index], [name]: value };
+    setFormData({ ...formData, cursos_superiores: novosCursos });
+  };
+
+  const adicionarCurso = () => {
+    if (formData.cursos_superiores.length < 3) {
+      setFormData({
+        ...formData,
+        cursos_superiores: [...formData.cursos_superiores, { uf: '', instituicao: '', situacao: '', tipo_instituicao: '', nome_curso: '', ano_inicio: '', ano_conclusao: '' }]
+      });
+    }
+  };
+
+  const removerCurso = (index: number) => {
+    const novosCursos = formData.cursos_superiores.filter((_, i) => i !== index);
+    setFormData({ ...formData, cursos_superiores: novosCursos });
+  };
+  // Função para buscar o endereço automaticamente via ViaCEP
+  const buscarCep = async (cepDigitado: string) => {
+    // Remove caracteres não numéricos (como traços e pontos)
+    const cepLimpo = cepDigitado.replace(/\D/g, '');
+
+    // Apenas faz a busca se o CEP tiver exatamente 8 dígitos
+    if (cepLimpo.length === 8) {
+      try {
+        const response = await axios.get(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+        
+        if (!response.data.erro) {
+          setFormData(prev => ({
+            ...prev,
+            endereco: response.data.logradouro || prev.endereco,
+            bairro: response.data.bairro || prev.bairro,
+            municipio: response.data.localidade || prev.municipio,
+            uf: response.data.uf || prev.uf
+          }));
+        } else {
+          alert('CEP não encontrado. Por favor, verifique o número digitado.');
+        }
+      } catch (error) {
+        console.error('Erro ao consultar o ViaCEP:', error);
+      }
+    }
+  };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStatus({ message: '', type: '' });
-    setLoading(true);
+    setMensagem(null);
 
     try {
-      await axios.post(API_URL, formData);
-      setStatus({ message: 'Funcionário cadastrado com sucesso!', type: 'success' });
-      setFormData(initialFormState);
-    } catch (err: any) {
-      const msg = err.response?.data?.error || 'Erro ao realizar cadastro. Tente novamente.';
-      setStatus({ message: msg, type: 'error' });
-    } finally {
-      setLoading(false);
+      const response = await axios.post('http://localhost:3001/api/funcionarios', formData);
+      setMensagem({ tipo: 'sucesso', texto: response.data.message || 'Funcionário cadastrado com sucesso!' });
+      setFormData(estadoInicial);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error: any) {
+      setMensagem({
+        tipo: 'erro',
+        texto: error.response?.data?.error || 'Erro ao cadastrar funcionário. Verifique os dados.'
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   return (
     <div className="container">
-      <h1>Cadastro de Funcionários</h1>
+      <h2>Cadastro de Funcionários - SME</h2>
+
+      {mensagem && (
+        <div className={`alerta ${mensagem.tipo}`}>
+          {mensagem.texto}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
-        {/* DADOS PESSOAIS */}
-        <fieldset>
-          <legend>Dados Pessoais</legend>
-          <div className="grid">
-            <div className="field">
-              <label>Nome Completo *</label>
-              <input type="text" name="nome_completo" value={formData.nome_completo} onChange={handleChange} required />
-            </div>
-            <div className="field">
-              <label>Data de Nascimento</label>
-              <input type="date" name="data_nascimento" value={formData.data_nascimento} onChange={handleChange} />
-            </div>
-            <div className="field">
-              <label>Sexo</label>
-              <select name="sexo" value={formData.sexo} onChange={handleChange}>
-                <option value="">Selecione</option>
-                <option value="Feminino">Feminino</option>
-                <option value="Masculino">Masculino</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Cor/Raça</label>
-              <input type="text" name="cor_raca" value={formData.cor_raca} onChange={handleChange} />
-            </div>
-            <div className="field">
-              <label>Email</label>
-              <input type="email" name="email" value={formData.email} onChange={handleChange} />
-            </div>
-            <div className="field">
-              <label>Matrícula</label>
-              <input type="text" name="matricula" value={formData.matricula} onChange={handleChange} />
-            </div>
-            <div className="field">
-              <label>Turno</label>
-              <select name="turno" value={formData.turno} onChange={handleChange}>
-                <option value="">Selecione</option>
-                <option value="Manhã">Manhã</option>
-                <option value="Tarde">Tarde</option>
-                <option value="Ambos">Ambos</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Telefone Celular</label>
-              <input type="text" name="telefone_celular" value={formData.telefone_celular} onChange={handleChange} />
-            </div>
-            <div className="field">
-              <label>Nome Completo da Mãe</label>
-              <input type="text" name="nome_mae" value={formData.nome_mae} onChange={handleChange} />
-            </div>
-            <div className="field">
-              <label>Nacionalidade</label>
-              <input type="text" name="nacionalidade" value={formData.nacionalidade} onChange={handleChange} />
-            </div>
-            <div className="field">
-              <label>UF Naturalidade</label>
-              <input type="text" name="uf_naturalidade" value={formData.uf_naturalidade} onChange={handleChange} maxLength={2} />
-            </div>
-            <div className="field">
-              <label>Município Naturalidade</label>
-              <input type="text" name="municipio_naturalidade" value={formData.municipio_naturalidade} onChange={handleChange} />
+        {/* 1. DADOS PESSOAIS */}
+        <h3>1. Dados Pessoais</h3>
+        <div className="grid">
+          <div className="span-2">
+            <label>Nome Completo *</label>
+            <input type="text" name="nome_completo" value={formData.nome_completo} onChange={handleChange} required />
+          </div>
+          <div>
+            <label>Data de Nascimento *</label>
+            <input type="date" name="data_nascimento" value={formData.data_nascimento || ''} onChange={handleChange} required />
+          </div>
+          <div>
+            <label>Sexo</label>
+
+            <select name="sexo" value={formData.sexo || ''} onChange={handleChange}>
+              <option value="">Selecione...</option>
+              <option value="Masculino">Masculino</option>
+              <option value="Feminino">Feminino</option>
+            </select>
+          </div>
+          <div>
+            <label>Cor / Raça</label>
+            <select name="cor_raca" value={formData.cor_raca || ''} onChange={handleChange}>
+              <option value="">Selecione...</option>
+              <option value="Branca">Branca</option>
+              <option value="Preta">Preta</option>
+              <option value="Parda">Parda</option>
+              <option value="Amarela">Amarela</option>
+              <option value="Indígena">Indígena</option>
+            </select>
+          </div>
+          <div>
+            <label>E-mail *</label>
+            <input type="email" name="email" value={formData.email || ''} onChange={handleChange} required />
+          </div>
+          <div>
+            <label>Telefone Celular</label>
+            <input type="text" name="telefone_celular" value={formData.telefone_celular || ''} onChange={handleChange} />
+          </div>
+          <div className="span-2">
+            <label>Nome Completo da Mãe</label>
+            <input type="text" name="nome_mae" value={formData.nome_mae || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>Nacionalidade</label>
+            <input type="text" name="nacionalidade" value={formData.nacionalidade || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>País de Origem</label>
+            <input type="text" name="pais_origem" value={formData.pais_origem || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>UF Naturalidade (Estado)</label>
+            <input type="text" name="uf_naturalidade" value={formData.uf_naturalidade || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>Naturalidade (Município)</label>
+            <input type="text" name="municipio_naturalidade" value={formData.municipio_naturalidade || ''} onChange={handleChange} />
+          </div>
+        </div>
+
+        {/* TURNOS E MATRÍCULAS */}
+        <h4>Turno de Atuação e Matrícula(s)</h4>
+        <div className="grid">
+          <div>
+            <label>Turno(s)</label>
+            <div className="checkbox-group">
+              <label><input type="checkbox" name="turno_manha" checked={formData.turno_manha || false} onChange={handleChange} /> Manhã</label>
+              <label><input type="checkbox" name="turno_tarde" checked={formData.turno_tarde || false} onChange={handleChange} /> Tarde</label>
             </div>
           </div>
-        </fieldset>
+          {formData.turno_manha && (
+            <div>
+              <label>Matrícula (Turno Manhã)</label>
+              <input type="text" name="matricula_manha" value={formData.matricula_manha || ''} onChange={handleChange} />
+            </div>
+          )}
+          {formData.turno_tarde && (
+            <div>
+              <label>Matrícula (Turno Tarde)</label>
+              <input type="text" name="matricula_tarde" value={formData.matricula_tarde || ''} onChange={handleChange} />
+            </div>
+          )}
+        </div>
 
         {/* DEFICIÊNCIAS */}
-        <fieldset>
-          <legend>Tipo de Deficiência do Funcionário</legend>
-          <div className="checkbox-group">
-            {[
-              'Cegueira', 'Baixa visão', 'Surdez', 'Deficiência auditiva', 
-              'Surdocegueira', 'Deficiência Física', 'Deficiência Intelectual', 
-              'Deficiência múltipla', 'Altas Habilidades/Superdotação', 
-              'Transtorno do Espectro Autista', 'NÃO TEM'
-            ].map(def => (
-              <label key={def} className="checkbox-item">
-                <input
-                  type="checkbox"
-                  checked={formData.deficiencias.includes(def)}
-                  onChange={() => handleCheckboxArray('deficiencias', def)}
-                />
-                {def}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        {/* ENDEREÇO */}
-        <fieldset>
-          <legend>Endereço Residencial</legend>
-          <div className="grid">
-            <div className="field"><label>CEP</label><input type="text" name="cep" value={formData.cep} onChange={handleChange} /></div>
-            <div className="field"><label>UF</label><input type="text" name="uf" value={formData.uf} onChange={handleChange} maxLength={2} /></div>
-            <div className="field"><label>Município</label><input type="text" name="municipio" value={formData.municipio} onChange={handleChange} /></div>
-            <div className="field"><label>Endereço</label><input type="text" name="endereco" value={formData.endereco} onChange={handleChange} /></div>
-            <div className="field"><label>Bairro</label><input type="text" name="bairro" value={formData.bairro} onChange={handleChange} /></div>
-            <div className="field"><label>Número</label><input type="text" name="numero" value={formData.numero} onChange={handleChange} /></div>
-            <div className="field"><label>Complemento</label><input type="text" name="complemento" value={formData.complemento} onChange={handleChange} /></div>
-            <div className="field">
-              <label>Zona Residencial</label>
-              <select name="zona_residencial" value={formData.zona_residencial} onChange={handleChange}>
-                <option value="">Selecione</option>
-                <option value="Urbana">Urbana</option>
-                <option value="Rural">Rural</option>
-              </select>
-            </div>
-          </div>
-        </fieldset>
-
-        {/* DOCUMENTAÇÃO */}
-        <fieldset>
-          <legend>Documentação</legend>
-          <div className="grid">
-            <div className="field"><label>CPF *</label><input type="text" name="cpf" value={formData.cpf} onChange={handleChange} required /></div>
-            <div className="field"><label>Nº Identidade (RG)</label><input type="text" name="rg_numero" value={formData.rg_numero} onChange={handleChange} /></div>
-            <div className="field"><label>Data Expedição</label><input type="date" name="rg_data_expedicao" value={formData.rg_data_expedicao} onChange={handleChange} /></div>
-            <div className="field"><label>UF RG</label><input type="text" name="rg_uf" value={formData.rg_uf} onChange={handleChange} maxLength={2} /></div>
-            <div className="field"><label>Órgão Emissor</label><input type="text" name="rg_orgao_emissor" value={formData.rg_orgao_emissor} onChange={handleChange} /></div>
-          </div>
-        </fieldset>
-
-        {/* ESCOLARIDADE */}
-        <fieldset>
-          <legend>Escolaridade</legend>
-          <div className="grid">
-            <div className="field">
-              <label>Maior Nível Concluído</label>
-              <select name="escolaridade_nivel" value={formData.escolaridade_nivel} onChange={handleChange}>
-                <option value="">Selecione</option>
-                <option value="Não concluiu o Ensino Fundamental">Não concluiu o Ensino Fundamental</option>
-                <option value="Fundamental Completo">Fundamental Completo</option>
-                <option value="Ensino Médio">Ensino Médio</option>
-                <option value="Superior">Superior</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Tipo de Ensino Médio Cursado</label>
-              <select name="ensino_medio_tipo" value={formData.ensino_medio_tipo} onChange={handleChange}>
-                <option value="">Selecione</option>
-                <option value="Formação Geral">Formação Geral</option>
-                <option value="Modalidade normal/magistério">Modalidade normal/magistério</option>
-                <option value="Curso técnico">Curso técnico</option>
-                <option value="Magistério indígena – modalidade normal">Magistério indígena – modalidade normal</option>
-              </select>
-            </div>
-          </div>
-        </fieldset>
-
-        {/* CURSOS SUPERIORES */}
-        <fieldset>
-          <legend>Cursos Superiores (Máximo 3)</legend>
-          {formData.cursos_superiores.map((curso, index) => (
-            <div key={index} style={{ borderBottom: '1px solid #ccc', paddingBottom: '15px', marginBottom: '15px' }}>
-              <h4>Curso {index + 1}</h4>
-              <div className="grid">
-                <div className="field"><label>Nome do Curso</label><input type="text" value={curso.nome_curso} onChange={e => handleCursoChange(index, 'nome_curso', e.target.value)} /></div>
-                <div className="field"><label>Instituição</label><input type="text" value={curso.instituicao} onChange={e => handleCursoChange(index, 'instituicao', e.target.value)} /></div>
-                <div className="field"><label>UF</label><input type="text" value={curso.uf} onChange={e => handleCursoChange(index, 'uf', e.target.value)} maxLength={2} /></div>
-                <div className="field">
-                  <label>Situação</label>
-                  <select value={curso.situacao} onChange={e => handleCursoChange(index, 'situacao', e.target.value)}>
-                    <option value="">Selecione</option>
-                    <option value="Concluído">Concluído</option>
-                    <option value="Em andamento">Em andamento</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label>Tipo de Instituição</label>
-                  <select value={curso.tipo_instituicao} onChange={e => handleCursoChange(index, 'tipo_instituicao', e.target.value)}>
-                    <option value="">Selecione</option>
-                    <option value="Pública">Pública</option>
-                    <option value="Privada">Privada</option>
-                  </select>
-                </div>
-                <div className="field"><label>Ano Início</label><input type="number" value={curso.ano_inicio} onChange={e => handleCursoChange(index, 'ano_inicio', e.target.value)} /></div>
-                <div className="field"><label>Ano Conclusão</label><input type="number" value={curso.ano_conclusao} onChange={e => handleCursoChange(index, 'ano_conclusao', e.target.value)} /></div>
-              </div>
-              <button type="button" className="btn-remove" onClick={() => handleRemoveCurso(index)}>Remover Curso</button>
-            </div>
+        <h4>Tipo de Deficiência do Funcionário</h4>
+        <div className="checkbox-grid">
+          {OPCOES_DEFICIENCIAS.map(item => (
+            <label key={item} className="checkbox-item">
+              <input
+                type="checkbox"
+                checked={(formData.deficiencias || []).includes(item)}
+                onChange={() => handleDeficienciaChange(item)}
+              />
+              {item}
+            </label>
           ))}
+        </div>
 
-          {formData.cursos_superiores.length < 3 && (
-            <button type="button" className="btn-add" onClick={handleAddCurso}>+ Adicionar Curso Superior</button>
+        {/* 2. ENDEREÇO E LOCALIZAÇÃO */}
+        <h3>2. Endereço Residencial</h3>
+        <div className="grid">
+          <div>
+            <label>CEP</label>
+            <input
+              type="text"
+              name="cep"
+              maxLength={9}
+              placeholder="00000-000"
+              value={formData.cep || ''}
+              onChange={(e) => {
+                handleChange(e);
+                // Se o usuário digitar ou colar 8 números, dispara a busca automaticamente
+                const valor = e.target.value.replace(/\D/g, '');
+                if (valor.length === 8) {
+                  buscarCep(valor);
+                }
+              }}
+              onBlur={(e) => buscarCep(e.target.value)} // Garante a busca quando o usuário sai do campo
+            />
+          </div>
+          <div className="span-2">
+            <label>Endereço</label>
+            <input type="text" name="endereco" value={formData.endereco || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>Número</label>
+            <input type="text" name="numero" value={formData.numero || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>Complemento</label>
+            <input type="text" name="complemento" value={formData.complemento || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>Bairro</label>
+            <input type="text" name="bairro" value={formData.bairro || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>Município</label>
+            <input type="text" name="municipio" value={formData.municipio || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>UF</label>
+            <input type="text" name="uf" value={formData.uf || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>Zona Residencial</label>
+            <select name="zona_residencial" value={formData.zona_residencial || ''} onChange={handleChange}>
+              <option value="Urbana">Urbana</option>
+              <option value="Rural">Rural</option>
+            </select>
+          </div>
+          <div className="span-2">
+            <label>Localização Diferenciada</label>
+            <select name="localizacao_diferenciada" value={formData.localizacao_diferenciada || ''} onChange={handleChange}>
+              <option value="Não está em localização diferenciada">Não está em localização diferenciada</option>
+              <option value="Área de Assentamento">Área de Assentamento</option>
+              <option value="Terra Indígena">Terra Indígena</option>
+              <option value="Área Remanescente de Quilombos">Área Remanescente de Quilombos</option>
+            </select>
+          </div>
+        </div>
+
+        {/* 3. DOCUMENTAÇÃO */}
+        <h3>3. Documentação</h3>
+        <div className="grid">
+          <div>
+            <label>CPF *</label>
+            <input type="text" name="cpf" value={formData.cpf} onChange={handleChange} required />
+          </div>
+          <div>
+            <label>Nº Identidade (RG)</label>
+            <input type="text" name="rg_numero" value={formData.rg_numero || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>Data de Expedição</label>
+            <input type="date" name="rg_data_expedicao" value={formData.rg_data_expedicao || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>Órgão Emissor</label>
+            <input type="text" name="rg_orgao_emissor" value={formData.rg_orgao_emissor || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>UF da Identidade</label>
+            <input type="text" name="rg_uf" value={formData.rg_uf || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>Complemento Identidade</label>
+            <input type="text" name="rg_complemento" value={formData.rg_complemento || ''} onChange={handleChange} />
+          </div>
+        </div>
+
+        {/* 4. ESCOLARIDADE E CURSOS */}
+        <h3>4. Escolaridade e Formação</h3>
+        <div className="grid">
+          <div>
+            <label>Maior Nível de Escolaridade</label>
+            <select name="escolaridade_nivel" value={formData.escolaridade_nivel || ''} onChange={handleChange}>
+              <option value="">Selecione...</option>
+              <option value="Não concluiu o Ensino Fundamental">Não concluiu o Ensino Fundamental</option>
+              <option value="Fundamental Completo">Fundamental Completo</option>
+              <option value="Ensino Médio">Ensino Médio</option>
+              <option value="Superior">Superior</option>
+            </select>
+          </div>
+          <div>
+            <label>Tipo de Ensino Médio Cursado</label>
+            <select name="ensino_medio_tipo" value={formData.ensino_medio_tipo || ''} onChange={handleChange}>
+              <option value="">Selecione...</option>
+              <option value="Formação Geral">Formação Geral</option>
+              <option value="Modalidade normal/magistério">Modalidade normal/magistério</option>
+              <option value="Curso técnico">Curso técnico</option>
+              <option value="Magistério indígena – modalidade normal">Magistério indígena – modalidade normal</option>
+            </select>
+          </div>
+        </div>
+
+        {/* CURSOS SUPERIORES DINÂMICOS */}
+        <h4>Curso(s) Superior(es)</h4>
+        <p className="instrucao">Atenção: Não precisa preencher mais de uma vez caso seja a mesma informação.</p>
+        
+        {formData.cursos_superiores.map((curso, index) => (
+          <div key={index} className="curso-card">
+            <h4>Curso Superior {index + 1}</h4>
+            <div className="grid">
+              <div className="span-2">
+                <label>Nome do Curso</label>
+                <input type="text" name="nome_curso" value={curso.nome_curso || ''} onChange={(e) => handleCursoChange(index, e)} />
+              </div>
+              <div className="span-2">
+                <label>Instituição</label>
+                <input type="text" name="instituicao" value={curso.instituicao || ''} onChange={(e) => handleCursoChange(index, e)} />
+              </div>
+              <div>
+                <label>Situação</label>
+                <select name="situacao" value={curso.situacao || ''} onChange={(e) => handleCursoChange(index, e)}>
+                  <option value="">Selecione...</option>
+                  <option value="Concluído">Concluído</option>
+                  <option value="Em andamento">Em andamento</option>
+                </select>
+              </div>
+              <div>
+                <label>Tipo de Instituição</label>
+                <select name="tipo_instituicao" value={curso.tipo_instituicao || ''} onChange={(e) => handleCursoChange(index, e)}>
+                  <option value="">Selecione...</option>
+                  <option value="Pública">Pública</option>
+                  <option value="Privada">Privada</option>
+                </select>
+              </div>
+              <div>
+                <label>UF</label>
+                <input type="text" name="uf" value={curso.uf || ''} onChange={(e) => handleCursoChange(index, e)} />
+              </div>
+              <div>
+                <label>Ano Início</label>
+                <input type="number" name="ano_inicio" value={curso.ano_inicio || ''} onChange={(e) => handleCursoChange(index, e)} />
+              </div>
+              <div>
+                <label>Ano Conclusão</label>
+                <input type="number" name="ano_conclusao" value={curso.ano_conclusao || ''} onChange={(e) => handleCursoChange(index, e)} />
+              </div>
+            </div>
+            {formData.cursos_superiores.length > 1 && (
+              <button type="button" className="btn-remover" onClick={() => removerCurso(index)}>Remover este curso</button>
+            )}
+          </div>
+        ))}
+
+        {formData.cursos_superiores.length < 3 && (
+          <button type="button" className="btn-adicionar" onClick={adicionarCurso}>+ Adicionar Outro Curso Superior</button>
+        )}
+
+        {/* FORMAÇÃO PEDAGÓGICA */}
+        <h4>Formação / Complementação Pedagógica (máximo 3 opções)</h4>
+        <div className="checkbox-grid">
+          {OPCOES_FORMACAO_PEDAGOGICA.map(item => (
+            <label key={item} className="checkbox-item">
+              <input
+                type="checkbox"
+                checked={(formData.formacao_pedagogica || []).includes(item)}
+                onChange={() => handleFormacaoPedagogicaChange(item)}
+              />
+              {item}
+            </label>
+          ))}
+        </div>
+
+        {/* PÓS-GRADUAÇÃO */}
+        <h4>Pós-Graduação</h4>
+        <div className="grid">
+          <div>
+            <label>Nível da Pós-Graduação</label>
+            <select name="pos_graduacao_tipo" value={formData.pos_graduacao_tipo || ''} onChange={handleChange}>
+              <option value="Não tem pós-graduação concluída">Não tem pós-graduação concluída</option>
+              <option value="Especialização">Especialização</option>
+              <option value="Mestrado">Mestrado</option>
+              <option value="Doutorado">Doutorado</option>
+            </select>
+          </div>
+          {formData.pos_graduacao_tipo !== 'Não tem pós-graduação concluída' && (
+            <>
+              <div>
+                <label>Área</label>
+                <input type="text" name="pos_graduacao_area" value={formData.pos_graduacao_area || ''} onChange={handleChange} />
+              </div>
+              <div>
+                <label>Ano de Conclusão</label>
+                <input type="number" name="pos_graduacao_ano_conclusao" value={formData.pos_graduacao_ano_conclusao || ''} onChange={handleChange} />
+              </div>
+            </>
           )}
-        </fieldset>
+        </div>
 
-        {/* SITUAÇÃO FUNCIONAL */}
-        <fieldset>
-          <legend>Situação Funcional / Regime de Contratação</legend>
-          <div className="field">
-            <select name="situacao_funcional" value={formData.situacao_funcional} onChange={handleChange}>
-              <option value="">Selecione</option>
-              <option value="Concursado/efetivo/estável">Concursado/efetivo/estável</option>
-              <option value="Contrato temporário">Contrato temporário</option>
-              <option value="Contrato terceirizado">Contrato terceirizado</option>
+        {/* OUTROS CURSOS ESPECÍFICOS */}
+        <h4>Outros Cursos Específicos (Mínimo de 80h)</h4>
+        <div className="checkbox-grid">
+          {OPCOES_CURSOS_ESPECIFICOS.map(item => (
+            <label key={item} className="checkbox-item">
+              <input
+                type="checkbox"
+                checked={(formData.cursos_especificos || []).includes(item)}
+                onChange={() => handleCursosEspecificosChange(item)}
+              />
+              {item}
+            </label>
+          ))}
+        </div>
+
+        {/* 5. SITUAÇÃO FUNCIONAL */}
+        <h3>5. Situação Funcional / Regime de Contratação</h3>
+        <blockquote className="nota-informativa">
+          ℹ️ <strong>Observação:</strong> Todos os servidores da SME são concursados. Estagiários REMUNERADOS são considerados Contratos Temporários.
+        </blockquote>
+
+        <div className="grid">
+          <div className="span-2">
+            <label>Regime de Contratação *</label>
+            <select name="situacao_funcional" value={formData.situacao_funcional || ''} onChange={handleChange} required>
+              <option value="">Selecione...</option>
+              <option value="Concursado/efetivo/estável">Concursado / Efetivo / Estável</option>
+              <option value="Contrato temporário">Contrato Temporário</option>
+              <option value="Contrato terceirizado">Contrato Terceirizado</option>
               <option value="Contrato CLT">Contrato CLT</option>
             </select>
           </div>
-        </fieldset>
-
-        <button type="submit" className="btn-submit" disabled={loading}>
-          {loading ? 'Cadastrando...' : 'Cadastrar Funcionário'}
-        </button>
-      </form>
-
-      {status.message && (
-        <div className={`status-message ${status.type}`}>
-          {status.message}
         </div>
-      )}
+
+        <button type="submit" className="btn-submit">Salvar Cadastro de Funcionário</button>
+      </form>
     </div>
   );
-}
+};
 
 export default App;
