@@ -1,4 +1,5 @@
 export interface CursoSuperior {
+  id?: string;
   uf?: string;
   instituicao?: string;
   situacao?: string;
@@ -9,6 +10,10 @@ export interface CursoSuperior {
 }
 
 export interface FuncionarioFormData {
+  id?: string;
+  created_at?: string;
+  ativo?: boolean;
+
   // Dados Pessoais
   nome_completo: string;
   data_nascimento?: string;
@@ -16,7 +21,7 @@ export interface FuncionarioFormData {
   cor_raca?: string;
   email?: string;
   
-  // Turnos e Matrículas (Novos)
+  // Turnos e Matrículas
   turno_manha?: boolean;
   turno_tarde?: boolean;
   matricula_manha?: string;

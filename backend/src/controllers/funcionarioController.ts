@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { supabase } from '../config/supabase';
 import { FuncionarioInput } from '../types/funcionario';
 
-// Função auxiliar para converter "" (texto vazio) em null em todo o objeto
 const limparCamposVazios = (obj: any): any => {
   if (Array.isArray(obj)) {
     return obj.map(limparCamposVazios);
@@ -12,35 +11,31 @@ const limparCamposVazios = (obj: any): any => {
       return acc;
     }, {});
   } else if (obj === '') {
-    return null; // Converte string vazia em null (aceito pelo PostgreSQL)
+    return null;
   }
   return obj;
 };
 
+// 1. Cadastrar Funcionário
 export const cadastrarFuncionario = async (req: Request, res: Response): Promise<void> => {
   try {
-    // 1. Limpa o formulário limpando todas as strings vazias para 'null'
     const dataTratada: FuncionarioInput = limparCamposVazios(req.body);
-
-    // 2. Separa os cursos superiores dos dados principais
     const { cursos_superiores, ...dadosFuncionario } = dataTratada;
 
-    // 3. Inserir na tabela 'funcionarios'
     const { data: novoFuncionario, error: errFuncionario } = await supabase
       .from('funcionarios')
-      .insert([dadosFuncionario])
+      .insert([{ ...dadosFuncionario, ativo: true }])
       .select()
       .single();
 
     if (errFuncionario) {
-      if (errFuncionario.code === '23505') { // Duplicidade de CPF
+      if (errFuncionario.code === '23505') {
         res.status(400).json({ error: 'Já existe um funcionário cadastrado com este CPF.' });
         return;
       }
       throw errFuncionario;
     }
 
-    // 4. Se houver cursos superiores informados, inserir na tabela 'cursos_superiores'
     if (cursos_superiores && cursos_superiores.length > 0) {
       const cursosComId = cursos_superiores.map(curso => ({
         ...curso,
@@ -51,9 +46,7 @@ export const cadastrarFuncionario = async (req: Request, res: Response): Promise
         .from('cursos_superiores')
         .insert(cursosComId);
 
-      if (errCursos) {
-        throw errCursos;
-      }
+      if (errCursos) throw errCursos;
     }
 
     res.status(201).json({
@@ -63,5 +56,54 @@ export const cadastrarFuncionario = async (req: Request, res: Response): Promise
   } catch (error: any) {
     console.error('Erro ao cadastrar funcionário:', error);
     res.status(500).json({ error: 'Erro interno do servidor ao salvar dados.' });
+  }
+};
+
+// 2. Listar todos os Funcionários (Painel Admin)
+export const listarFuncionarios = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { data, error } = await supabase
+      .from('funcionarios')
+      .select('*, cursos_superiores(*)')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.status(200).json(data);
+  } catch (error: any) {
+    console.error('Erro ao listar funcionários:', error);
+    res.status(500).json({ error: 'Erro ao buscar registros.' });
+  }
+};
+
+// 3. Atualizar Status (Ativo / Inativo)
+export const atualizarStatusFuncionario = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { ativo } = req.body;
+
+    const { error } = await supabase
+      .from('funcionarios')
+      .update({ ativo })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.status(200).json({ message: 'Status atualizado com sucesso!' });
+  } catch (error: any) {
+    console.error('Erro ao atualizar status:', error);
+    res.status(500).json({ error: 'Erro ao atualizar status do funcionário.' });
+  }
+};
+
+// 4. Autenticação de Admin
+export const loginAdmin = async (req: Request, res: Response): Promise<void> => {
+  const { senha } = req.body;
+  const senhaCorreta = process.env.ADMIN_PASSWORD || 'admin123';
+
+  if (senha === senhaCorreta) {
+    res.status(200).json({ sucesso: true, token: 'admin_autenticado' });
+  } else {
+    res.status(401).json({ error: 'Senha incorreta!' });
   }
 };

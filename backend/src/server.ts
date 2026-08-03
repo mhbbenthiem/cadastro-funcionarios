@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 // Cadastra a rota base
-app.use('/api/funcionarios', funcionarioRoutes);
+app.use('/api', funcionarioRoutes);
 
 const PORT = process.env.PORT || 3001;
 
