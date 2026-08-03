@@ -20,7 +20,7 @@ export const AdminPanel: React.FC = () => {
     setCarregandoLogin(true);
 
     try {
-      const response = await axios.post('http://localhost:3001/api/admin/login', { senha });
+      const response = await axios.post('https://cadastro-funcionarios-eight.vercel.app/api/admin/login', { senha });
       
       if (response.data.sucesso) {
         setAutenticado(true);
@@ -37,7 +37,7 @@ export const AdminPanel: React.FC = () => {
     setCarregando(true);
     setErro('');
     try {
-      const response = await axios.get('http://localhost:3001/api/funcionarios');
+      const response = await axios.get('https://cadastro-funcionarios-eight.vercel.app/api/funcionarios');
       setFuncionarios(response.data);
     } catch (err: any) {
       console.error('Erro ao buscar funcionários:', err);
@@ -61,7 +61,7 @@ export const AdminPanel: React.FC = () => {
     }
 
     try {
-      await axios.patch(`http://localhost:3001/api/funcionarios/${id}/status`, {
+      await axios.patch(`https://cadastro-funcionarios-eight.vercel.app/api/funcionarios/${id}/status`, {
         ativo: !ehAtivo
       });
       

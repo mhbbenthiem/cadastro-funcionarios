@@ -195,7 +195,7 @@ export const App: React.FC = () => {
     setCarregando(true);
 
     try {
-      const response = await axios.post('http://localhost:3001/api/funcionarios', formData);
+      const response = await axios.post('https://cadastro-funcionarios-eight.vercel.app/api/funcionarios', formData);
       setMensagem({ tipo: 'sucesso', texto: response.data.message || 'Funcionário cadastrado com sucesso!' });
       setFormData(estadoInicial);
       window.scrollTo({ top: 0, behavior: 'smooth' });
