@@ -6,35 +6,36 @@ import funcionarioRoutes from './src/routes/funcionarioRoutes';
 dotenv.config();
 
 const app = express();
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*'); // Ou coloque a URL exata do seu frontend
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+// Middlewares
+app.use(cors());
+app.use(express.json());
+
+// Rota de Login do Administrador
+app.post('/api/admin/login', (req, res) => {
+  const { senha } = req.body;
   
-  // Se for uma requisição OPTIONS (pré-voo), responde imediatamente com status 200
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-    return;
+  // Define a senha de acesso (pode alterar aqui ou usar ADMIN_PASSWORD no .env)
+  const SENHA_MESTRE = process.env.ADMIN_PASSWORD || 'mira2026';
+
+  if (senha === SENHA_MESTRE) {
+    return res.json({ sucesso: true });
   }
-  
-  next();
+
+  return res.status(401).json({ error: 'Senha incorreta.' });
 });
 
-// Suas configurações normais continuam aqui:
-app.use(cors());
-app.use(express.json());
-
-// Cadastra a rota base
-app.use('/api', funcionarioRoutes);
-app.use(cors());
-app.use(express.json());
-
-// Cadastra a rota base
+// Rotas de Funcionários
 app.use('/api', funcionarioRoutes);
 
-const PORT = process.env.PORT || 3001;
+// Porta padrão para testes locais
+const PORT = process.env.PORT || 3000;
 
-// app.listen(PORT, () => {
-//   console.log(`Servidor rodando em http://localhost:${PORT}`);
-// });
+// Inicialização do servidor apenas para ambiente local
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor backend rodando em http://localhost:${PORT}`);
+  });
+}
+
 export default app;

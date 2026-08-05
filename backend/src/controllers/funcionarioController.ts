@@ -2,6 +2,46 @@ import { Request, Response } from 'express';
 import { supabase } from '../config/supabase';
 import { FuncionarioInput } from '../types/funcionario';
 
+
+export const atualizarFuncionario = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const dados = req.body;
+
+  try {
+    const { data, error } = await supabase
+      .from('funcionarios')
+      .update({
+        nome_completo: dados.nome_completo,
+        cpf: dados.cpf,
+        email: dados.email,
+        telefone_celular: dados.telefone_celular,
+        data_nascimento: dados.data_nascimento,
+        nome_mae: dados.nome_mae,
+        cep: dados.cep,
+        endereco: dados.endereco,
+        numero: dados.numero,
+        bairro: dados.bairro,
+        municipio: dados.municipio,
+        uf: dados.uf,
+        situacao_funcional: dados.situacao_funcional,
+        contato_emergencia_nome: dados.contato_emergencia_nome,
+        contato_emergencia_telefone: dados.contato_emergencia_telefone,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Erro Supabase:', error);
+      return res.status(400).json({ error: 'Erro ao atualizar no banco de dados.' });
+    }
+
+    return res.json({ sucesso: true, funcionario: data });
+  } catch (err) {
+    console.error('Erro interno:', err);
+    return res.status(500).json({ error: 'Erro interno no servidor ao salvar alterações.' });
+  }
+};
 const limparCamposVazios = (obj: any): any => {
   if (Array.isArray(obj)) {
     return obj.map(limparCamposVazios);
@@ -19,9 +59,15 @@ const limparCamposVazios = (obj: any): any => {
 // 1. Cadastrar Funcionário
 export const cadastrarFuncionario = async (req: Request, res: Response): Promise<void> => {
   try {
-    const dataTratada: FuncionarioInput = limparCamposVazios(req.body);
+    // Quando os dados vêm de um FormData, eles chegam no req.body.dados como String JSON
+    const bodyData = typeof req.body.dados === 'string'
+      ? JSON.parse(req.body.dados)
+      : req.body;
+
+    const dataTratada: FuncionarioInput = limparCamposVazios(bodyData);
     const { cursos_superiores, ...dadosFuncionario } = dataTratada;
 
+    // 1. Inserir os dados do funcionário no Supabase
     const { data: novoFuncionario, error: errFuncionario } = await supabase
       .from('funcionarios')
       .insert([{ ...dadosFuncionario, ativo: true }])
@@ -36,15 +82,54 @@ export const cadastrarFuncionario = async (req: Request, res: Response): Promise
       throw errFuncionario;
     }
 
+    // 2. Processar Cursos Superiores e Upload dos Diplomas (se houver)
     if (cursos_superiores && cursos_superiores.length > 0) {
-      const cursosComId = cursos_superiores.map(curso => ({
-        ...curso,
-        funcionario_id: novoFuncionario.id
-      }));
+      const files = (req.files as Express.Multer.File[]) || [];
 
+      const cursosComUpload = await Promise.all(
+        cursos_superiores.map(async (curso: any, index: number) => {
+          const file = files[index];
+          let diploma_url = null;
+
+          // Se houver um arquivo PDF válido para este curso
+          if (file && file.size > 0) {
+            const nomeArquivo = `diploma_${novoFuncionario.id}_${Date.now()}_${file.originalname.replace(/\s+/g, '_')}`;
+
+            // Upload para o bucket 'diplomas' no Supabase Storage
+            const { error: storageError } = await supabase.storage
+              .from('diplomas')
+              .upload(nomeArquivo, file.buffer, {
+                contentType: file.mimetype,
+                upsert: true
+              });
+
+            if (storageError) {
+              console.error('Erro ao enviar PDF para o Storage:', storageError);
+            } else {
+              // Pegar a URL pública do arquivo enviado
+              const { data: publicUrlData } = supabase.storage
+                .from('diplomas')
+                .getPublicUrl(nomeArquivo);
+
+              diploma_url = publicUrlData.publicUrl;
+            }
+          }
+
+          // Garante que não envia a propriedade temporária 'diploma_file' para o Postgres
+          const { diploma_file, ...cursoLimpo } = curso;
+
+          return {
+            ...cursoLimpo,
+            funcionario_id: novoFuncionario.id,
+            diploma_url
+          };
+        })
+      );
+
+      // Inserir os cursos no banco de dados
       const { error: errCursos } = await supabase
         .from('cursos_superiores')
-        .insert(cursosComId);
+        .insert(cursosComUpload);
 
       if (errCursos) throw errCursos;
     }

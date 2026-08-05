@@ -7,6 +7,8 @@ export interface CursoSuperior {
   nome_curso?: string;
   ano_inicio?: number | string | null;
   ano_conclusao?: number | string | null;
+  diploma_file?: File;
+  diploma_url?: string;
 }
 
 export interface FuncionarioFormData {
@@ -74,4 +76,7 @@ export interface FuncionarioFormData {
 
   // Situação Funcional
   situacao_funcional?: string;
+  // Contato de emergência
+  contato_emergencia_nome?: string;
+  contato_emergencia_telefone?: string;  
 }

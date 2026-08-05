@@ -3,7 +3,9 @@ import axios from 'axios';
 import './App.css';
 import { FuncionarioFormData } from './types/funcionario';
 import AdminPanel from './AdminPanel';
-
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:3001'
+  : 'https://cadastro-funcionarios-eight.vercel.app';
 const OPCOES_DEFICIENCIAS = [
   'Cegueira', 'Baixa visão', 'Surdez', 'Deficiência auditiva',
   'Surdocegueira', 'Deficiência Física', 'Deficiência Intelectual',
@@ -73,11 +75,12 @@ const estadoInicial: FuncionarioFormData = {
   pos_graduacao_area: '',
   pos_graduacao_ano_conclusao: '',
   cursos_especificos: [],
-  situacao_funcional: ''
+  situacao_funcional: '',
+  contato_emergencia_nome: '',
+  contato_emergencia_telefone: '',
 };
 
 export const App: React.FC = () => {
-  // Estado para controlar a aba ativa ('formulario' ou 'admin')
   const [abaAtiva, setAbaAtiva] = useState<'formulario' | 'admin'>('formulario');
 
   const [formData, setFormData] = useState<FuncionarioFormData>(estadoInicial);
@@ -147,6 +150,21 @@ export const App: React.FC = () => {
     setFormData({ ...formData, cursos_superiores: novosCursos });
   };
 
+  // GERENCIADOR DE SELEÇÃO DE ARQUIVO PDF DO DIPLOMA (NOVO)
+  const handleFileChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        alert('Por favor, selecione um arquivo no formato PDF.');
+        e.target.value = '';
+        return;
+      }
+      const novosCursos = [...formData.cursos_superiores];
+      novosCursos[index] = { ...novosCursos[index], diploma_file: file };
+      setFormData({ ...formData, cursos_superiores: novosCursos });
+    }
+  };
+
   const adicionarCurso = () => {
     if (formData.cursos_superiores.length < 3) {
       setFormData({
@@ -195,7 +213,30 @@ export const App: React.FC = () => {
     setCarregando(true);
 
     try {
-      const response = await axios.post('https://cadastro-funcionarios-eight.vercel.app/api/funcionarios', formData);
+      const formDataPayload = new FormData();
+
+      // Envia os dados textuais no campo 'dados'
+      formDataPayload.append('dados', JSON.stringify(formData));
+
+      // Anexa os arquivos dos diplomas
+      formData.cursos_superiores.forEach((curso) => {
+        if (curso.diploma_file) {
+          formDataPayload.append('diplomas', curso.diploma_file);
+        } else {
+          formDataPayload.append('diplomas', new Blob([]), '');
+        }
+      });
+
+      const response = await axios.post(
+        '${API_BASE_URL}/api/funcionarios',
+        formDataPayload,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
       setMensagem({ tipo: 'sucesso', texto: response.data.message || 'Funcionário cadastrado com sucesso!' });
       setFormData(estadoInicial);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -301,6 +342,29 @@ export const App: React.FC = () => {
               <div>
                 <label>Naturalidade (Município)</label>
                 <input type="text" name="municipio_naturalidade" value={formData.municipio_naturalidade || ''} onChange={handleChange} />
+              </div>
+            </div>
+
+            {/* CONTATO DE EMERGÊNCIA */}
+            <h4>Contato de Emergência</h4>
+            <div className="grid">
+              <div>
+                <label>Nome do Contato de Emergência</label>
+                <input 
+                  type="text" 
+                  name="contato_emergencia_nome" 
+                  value={formData.contato_emergencia_nome || ''} 
+                  onChange={handleChange} 
+                />
+              </div>
+              <div>
+                <label>Telefone do Contato</label>
+                <input 
+                  type="text" 
+                  name="contato_emergencia_telefone" 
+                  value={formData.contato_emergencia_telefone || ''} 
+                  onChange={handleChange} 
+                />
               </div>
             </div>
 
@@ -511,6 +575,21 @@ export const App: React.FC = () => {
                     <input type="number" name="ano_conclusao" value={curso.ano_conclusao || ''} onChange={(e) => handleCursoChange(index, e)} />
                   </div>
                 </div>
+
+                <div className="span-2" style={{ marginTop: '12px' }}>
+                  <label>Anexar Diploma (Somente PDF)</label>
+                  <input 
+                    type="file" 
+                    accept="application/pdf"
+                    onChange={(e) => handleFileChange(index, e)} 
+                  />
+                  {curso.diploma_file && (
+                    <small style={{ color: '#2e7d32', fontWeight: 'bold', display: 'block', marginTop: '4px' }}>
+                      ✓ Arquivo selecionado: {curso.diploma_file.name}
+                    </small>
+                  )}
+                </div>
+
                 {formData.cursos_superiores.length > 1 && (
                   <button type="button" className="btn-remover" onClick={() => removerCurso(index)}>Remover este curso</button>
                 )}
@@ -544,8 +623,7 @@ export const App: React.FC = () => {
                 <select name="pos_graduacao_tipo" value={formData.pos_graduacao_tipo || ''} onChange={handleChange}>
                   <option value="Não tem pós-graduação concluída">Não tem pós-graduação concluída</option>
                   <option value="Especialização">Especialização</option>
-                  <option value="Mestrado">Mestrado</option>
-                  <option value="Doutorado">Doutorado</option>
+                  <option value="Mestrado/Doutorado">Mestrado/Doutorado</option>
                 </select>
               </div>
               {formData.pos_graduacao_tipo !== 'Não tem pós-graduação concluída' && (

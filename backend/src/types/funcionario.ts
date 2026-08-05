@@ -6,6 +6,9 @@ export interface CursoSuperiorInput {
   nome_curso?: string;
   ano_inicio?: number;
   ano_conclusao?: number;
+  diploma_url?: string;
+  // Propriedade temporária no React para o arquivo selecionado
+  diploma_file?: File | null;
 }
 
 export interface FuncionarioInput {
@@ -64,4 +67,7 @@ export interface FuncionarioInput {
 
   // Cursos Superiores (Até 3)
   cursos_superiores?: CursoSuperiorInput[];
+  // Contato de emergência
+  contato_emergencia_nome?: string;
+  contato_emergencia_telefone?: string;
 }
