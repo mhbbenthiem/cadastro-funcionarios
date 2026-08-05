@@ -3,7 +3,8 @@ import axios from 'axios';
 import './App.css';
 import { FuncionarioFormData } from './types/funcionario';
 import AdminPanel from './AdminPanel';
-// const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:3001'
   : 'https://cadastro-funcionarios-eight.vercel.app';
 const OPCOES_DEFICIENCIAS = [
@@ -228,7 +229,7 @@ export const App: React.FC = () => {
       });
 
       const response = await axios.post(
-        '${API_BASE_URL}/api/funcionarios',
+        `${API_BASE_URL}/api/funcionarios`,
         formDataPayload,
         {
           headers: {
