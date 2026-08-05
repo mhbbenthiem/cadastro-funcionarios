@@ -209,49 +209,44 @@ export const App: React.FC = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMensagem(null);
-    setCarregando(true);
+      e.preventDefault();
+      setMensagem(null);
+      setCarregando(true);
 
-    try {
-      const formDataPayload = new FormData();
+      try {
+        const formDataPayload = new FormData();
 
-      // Envia os dados textuais no campo 'dados'
-      formDataPayload.append('dados', JSON.stringify(formData));
+        // Envia os dados textuais no campo 'dados'
+        formDataPayload.append('dados', JSON.stringify(formData));
 
-      // Anexa os arquivos dos diplomas
-      formData.cursos_superiores.forEach((curso) => {
-        if (curso.diploma_file) {
-          formDataPayload.append('diplomas', curso.diploma_file);
-        } else {
-          formDataPayload.append('diplomas', new Blob([]), '');
-        }
-      });
+        // Anexa os arquivos dos diplomas
+        formData.cursos_superiores.forEach((curso) => {
+          if (curso.diploma_file) {
+            formDataPayload.append('diplomas', curso.diploma_file);
+          } else {
+            formDataPayload.append('diplomas', new Blob([]), '');
+          }
+        });
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/funcionarios`,
-        formDataPayload,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      );
+        // Axios ajusta os cabeçalhos automaticamente quando recebe FormData (NÃO passe headers manuais)
+        const response = await axios.post(
+          `${API_BASE_URL}/api/funcionarios`,
+          formDataPayload
+        );
 
-      setMensagem({ tipo: 'sucesso', texto: response.data.message || 'Funcionário cadastrado com sucesso!' });
-      setFormData(estadoInicial);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (error: any) {
-      setMensagem({
-        tipo: 'erro',
-        texto: error.response?.data?.error || 'Erro ao cadastrar funcionário. Verifique os dados.'
-      });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } finally {
-      setCarregando(false);
-    }
-  };
-
+        setMensagem({ tipo: 'sucesso', texto: response.data.message || 'Funcionário cadastrado com sucesso!' });
+        setFormData(estadoInicial);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (error: any) {
+        setMensagem({
+          tipo: 'erro',
+          texto: error.response?.data?.error || 'Erro ao cadastrar funcionário. Verifique os dados.'
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } finally {
+        setCarregando(false);
+      }
+    };
   return (
     <div className="container">
       {/* BARRA DE NAVEGAÇÃO DE ABAS */}

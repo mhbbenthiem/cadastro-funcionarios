@@ -10,29 +10,19 @@ import {
 
 const router = Router();
 
-router.post('/funcionarios', cadastrarFuncionario);
-router.get('/funcionarios', listarFuncionarios);
-router.patch('/funcionarios/:id/status', atualizarStatusFuncionario);
-router.post('/admin/login', (req, res) => {
-  const { senha } = req.body;
-  const SENHA_MESTRE = process.env.ADMIN_PASSWORD || 'mira2026';
-
-  if (senha === SENHA_MESTRE) {
-    return res.json({ sucesso: true });
-  }
-
-  return res.status(401).json({ error: 'Senha incorreta.' });
-});
 // Configura o multer para armazenar arquivos em memória (Buffer)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 4.5 * 1024 * 1024 } // Limite de 4.5MB (limite da Vercel)
+  limits: { fileSize: 4.5 * 1024 * 1024 } // Limite de 4.5MB (limite de Serverless da Vercel)
 });
 
-// Aceita até 3 arquivos chamados 'diplomas' na requisição
+// 1. Rota de Login do Administrador
+router.post('/admin/login', loginAdmin);
+
+// 2. Rotas de Funcionários
 router.post('/funcionarios', upload.array('diplomas', 3), cadastrarFuncionario);
 router.get('/funcionarios', listarFuncionarios);
+router.put('/funcionarios/:id', atualizarFuncionario);
 router.patch('/funcionarios/:id/status', atualizarStatusFuncionario);
-router.put('/funcionarios/:id', atualizarFuncionario); // Rota limpa apontando para o controller
 
 export default router;
