@@ -626,7 +626,19 @@ export const App: React.FC = () => {
                 <>
                   <div>
                     <label>Área</label>
-                    <input type="text" name="pos_graduacao_area" value={formData.pos_graduacao_area || ''} onChange={handleChange} />
+                    <select name="pos_graduacao_area" value={formData.pos_graduacao_area || ''} onChange={handleChange}>
+                      <option value="Educação">Educação</option>
+                      <option value="Artes e Humanidades">Artes e Humanidades</option>
+                      <option value="Ciências Sociais, Jornalismo e Informação">Ciências Sociais, Jornalismo e Informação</option>
+                      <option value="Negócios, Administração e Direito">Negócios, Administração e Direito</option>
+                      <option value="Ciências Naturais, Matemática e Estatística">Ciências Naturais, Matemática e Estatística</option>
+                      <option value="Computação e Tecnologias da Informação e Comunicação">Computação e Tecnologias da Informação e Comunicação</option>
+                      <option value="Engenharia, Produção e Construção">Engenharia, Produção e Construção</option>
+                      <option value="Agricultura, Sivicultura, Pesca e Veterinária">Agricultura, Sivicultura, Pesca e Veterinária</option>
+                      <option value="Saúde e Bem-Estar">Saúde e Bem-Estar</option>
+                      <option value="Serviços">Serviços</option>
+                      <option value="Não tem especialização concluída">Não tem especialização concluída</option>
+                    </select>
                   </div>
                   <div>
                     <label>Ano de Conclusão</label>
