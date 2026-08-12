@@ -3,6 +3,7 @@ import axios from 'axios';
 import './App.css';
 import { FuncionarioFormData } from './types/funcionario';
 import AdminPanel from './AdminPanel';
+import { AtualizarCadastro } from './AtualizarCadastro';
 
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:3001'
@@ -82,8 +83,7 @@ const estadoInicial: FuncionarioFormData = {
 };
 
 export const App: React.FC = () => {
-  const [abaAtiva, setAbaAtiva] = useState<'formulario' | 'admin'>('formulario');
-
+  const [abaAtiva, setAbaAtiva] = useState<'cadastro' | 'atualizar' | 'admin'>('cadastro');
   const [formData, setFormData] = useState<FuncionarioFormData>(estadoInicial);
   const [mensagem, setMensagem] = useState<{ tipo: 'sucesso' | 'erro'; texto: string } | null>(null);
   const [carregando, setCarregando] = useState<boolean>(false);
@@ -253,10 +253,17 @@ export const App: React.FC = () => {
       <nav className="nav-tabs">
         <button
           type="button"
-          className={`tab-button ${abaAtiva === 'formulario' ? 'active' : ''}`}
-          onClick={() => setAbaAtiva('formulario')}
+          className={`tab-button ${abaAtiva === 'cadastro' ? 'active' : ''}`}
+          onClick={() => setAbaAtiva('cadastro')}
         >
            Novo Cadastro
+        </button>
+        <button
+          type="button"
+          className={`tab-button ${abaAtiva === 'atualizar' ? 'active' : ''}`}
+          onClick={() => setAbaAtiva('atualizar')}
+        >
+           Atualizar Cadastro
         </button>
         <button
           type="button"
@@ -268,7 +275,8 @@ export const App: React.FC = () => {
       </nav>
 
       {/* RENDERIZAÇÃO CONDICIONAL */}
-      {abaAtiva === 'admin' ? (
+        {abaAtiva === 'atualizar' ? (<AtualizarCadastro/>):
+        abaAtiva === 'admin' ? (
         <AdminPanel />
       ) : (
         <>

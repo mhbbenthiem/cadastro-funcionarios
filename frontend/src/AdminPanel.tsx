@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
 import { FuncionarioFormData } from './types/funcionario';
-// Define dinamicamente a URL base dependendo do ambiente
+
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:3001'
   : 'https://cadastro-funcionarios-eight.vercel.app';
@@ -85,20 +87,17 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
-  // Iniciar Modo de Edição
   const handleIniciarEdicao = (func: FuncionarioFormData) => {
     setFuncionarioDetalhe(func);
     setFormEdicao({ ...func });
     setModoEdicao(true);
   };
 
-  // Alterar campos do formulário de edição
   const handleInputChange = (campo: keyof FuncionarioFormData, valor: any) => {
     if (!formEdicao) return;
     setFormEdicao({ ...formEdicao, [campo]: valor });
   };
 
-  // Salvar Edição no Backend
   const handleSalvarEdicao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formEdicao || !formEdicao.id) return;
@@ -109,10 +108,7 @@ export const AdminPanel: React.FC = () => {
       
       const funcionarioAtualizado = response.data.funcionario || formEdicao;
 
-      // Atualiza na lista do estado principal
       setFuncionarios(prev => prev.map(f => f.id === formEdicao.id ? funcionarioAtualizado : f));
-      
-      // Atualiza a visualização de detalhes
       setFuncionarioDetalhe(funcionarioAtualizado);
       setModoEdicao(false);
       alert('Dados do funcionário atualizados com sucesso!');
@@ -124,10 +120,128 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const exportarPDFFuncionario = (func: FuncionarioFormData) => {
+    const doc = new jsPDF();
+    let y = 15;
+
+    // Cabeçalho
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FICHA CADASTRAL DO FUNCIONÁRIO - SME', 14, y);
+    y += 8;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Documento gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 14, y);
+    y += 10;
+
+    const addSectionHeader = (titulo: string) => {
+      if (y > 270) { doc.addPage(); y = 15; }
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setFillColor(235, 238, 242);
+      doc.rect(14, y - 4, 182, 7, 'F');
+      doc.text(titulo, 16, y);
+      y += 8;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+    };
+
+    const addLine = (rotulo: string, valor: string | undefined | null) => {
+      if (y > 280) { doc.addPage(); y = 15; }
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${rotulo}: `, 14, y);
+      const larguraRotulo = doc.getTextWidth(`${rotulo}: `);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${valor || 'Não informado'}`, 14 + larguraRotulo, y);
+      y += 5.5;
+    };
+
+    // 1. Dados Pessoais & Contatos
+    addSectionHeader('1. DADOS PESSOAIS E CONTATOS');
+    addLine('Nome Completo', func.nome_completo);
+    addLine('CPF', func.cpf);
+    addLine('Data de Nascimento', func.data_nascimento);
+    addLine('Sexo', func.sexo);
+    addLine('Cor / Raça', func.cor_raca);
+    addLine('E-mail', func.email);
+    addLine('Telefone Celular', func.telefone_celular);
+    addLine('Nome da Mãe', func.nome_mae);
+    addLine('Nacionalidade', func.nacionalidade);
+    addLine('País de Origem', func.pais_origem);
+    addLine('Naturalidade', `${func.municipio_naturalidade || 'N/A'} - ${func.uf_naturalidade || 'N/A'}`);
+    addLine('Contato Emergência', `${func.contato_emergencia_nome || 'N/A'} (${func.contato_emergencia_telefone || 'Sem fone'})`);
+    y += 4;
+
+    // 2. Turnos e Matrículas
+    addSectionHeader('2. TURNOS E MATRÍCULAS');
+    addLine('Turno Manhã', func.turno_manha ? `Sim ${func.matricula_manha ? `(Matrícula: ${func.matricula_manha})` : ''}` : 'Não');
+    addLine('Turno Tarde', func.turno_tarde ? `Sim ${func.matricula_tarde ? `(Matrícula: ${func.matricula_tarde})` : ''}` : 'Não');
+    y += 4;
+
+    // 3. Endereço
+    addSectionHeader('3. ENDEREÇO RESIDENCIAL');
+    addLine('CEP', func.cep);
+    addLine('Endereço', `${func.endereco || ''}, Nº ${func.numero || 'S/N'}`);
+    addLine('Complemento', func.complemento);
+    addLine('Bairro', func.bairro);
+    addLine('Município / UF', `${func.municipio || 'N/A'} / ${func.uf || 'N/A'}`);
+    addLine('Zona Residencial', func.zona_residencial);
+    y += 4;
+
+    // 4. Escolaridade
+    addSectionHeader('4. ESCOLARIDADE E CURSOS');
+    addLine('Nível de Escolaridade', func.escolaridade_nivel);
+    if (func.cursos_superiores && func.cursos_superiores.length > 0) {
+      func.cursos_superiores.forEach((c, idx) => {
+        addLine(`Curso ${idx + 1}`, `${c.nome_curso || 'N/A'} - ${c.instituicao || 'N/A'} (${c.situacao || 'N/A'})`);
+      });
+    }
+    y += 4;
+
+    // 5. Situação Funcional
+    addSectionHeader('5. SITUAÇÃO FUNCIONAL');
+    addLine('Regime de Contratação', func.situacao_funcional);
+    addLine('Status no Sistema', func.ativo !== false ? 'Ativo' : 'Inativo');
+
+    // Nome do arquivo PDF utilizando o Nome Completo
+    const nomeArquivo = `${func.nome_completo || 'funcionario'}_cadastro.pdf`;
+    doc.save(nomeArquivo);
+  };
+
   const funcionariosFiltrados = funcionarios.filter(f =>
     f.nome_completo?.toLowerCase().includes(busca.toLowerCase()) ||
     f.cpf?.includes(busca)
   );
+
+  const exportarParaExcel = () => {
+    if (funcionarios.length === 0) {
+      alert('Não há dados para exportar.');
+      return;
+    }
+
+    const dadosFormatados = funcionarios.map(f => ({
+      'Nome Completo': f.nome_completo || '',
+      'CPF': f.cpf || '',
+      'Telefone': f.telefone_celular || '',
+      'Matrícula (Manhã)': f.matricula_manha || '',
+      'Matrícula (Tarde)': f.matricula_tarde || ''
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dadosFormatados);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Funcionários');
+
+    worksheet['!cols'] = [
+      { wch: 35 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 20 },
+      { wch: 20 }
+    ];
+
+    XLSX.writeFile(workbook, `funcionarios_sme_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
 
   if (!autenticado) {
     return (
@@ -175,6 +289,27 @@ export const AdminPanel: React.FC = () => {
           />
         </div>
       </div>
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <button
+          type="button"
+          onClick={exportarParaExcel}
+          style={{
+            backgroundColor: '#276749',
+            color: 'white',
+            border: 'none',
+            padding: '10px 16px',
+            borderRadius: '6px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          Exportar para Excel (.xlsx)
+        </button>
+      </div>
 
       {carregando ? (
         <p className="instrucao">Carregando dados dos servidores...</p>
@@ -212,51 +347,105 @@ export const AdminPanel: React.FC = () => {
                     </span>
                   </td>
 
-                  <td style={{ padding: '10px', textAlign: 'center', display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                    <button
-                      type="button"
-                      className="btn-adicionar"
-                      style={{ padding: '6px 10px', marginBottom: 0, fontSize: '0.8rem' }}
-                      onClick={() => {
-                        setFuncionarioDetalhe(func);
-                        setModoEdicao(false);
-                      }}
-                    >
-                      Detalhes
-                    </button>
+                  {/* COLUNA DE AÇÕES COM BOTÃO DE EXPORTAR PDF */}
+                  <td style={{ padding: '10px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
+                      {/* Botão Seta (Detalhes) */}
+                      <button
+                        type="button"
+                        title="Exibir detalhes"
+                        aria-label="Exibir detalhes"
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e0',
+                          backgroundColor: '#edf2f7',
+                          color: '#2d3748',
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        onClick={() => {
+                          setFuncionarioDetalhe(func);
+                          setModoEdicao(false);
+                        }}
+                      >
+                        ▼
+                      </button>
 
-                    <button
-                      type="button"
-                      style={{ 
-                        padding: '6px 10px', 
-                        fontSize: '0.8rem',
-                        backgroundColor: '#3182ce',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                      }}
-                      onClick={() => handleIniciarEdicao(func)}
-                    >
-                      Editar
-                    </button>
-                    
-                    <button
-                      type="button"
-                      className={func.ativo !== false ? 'btn-remover' : 'btn-adicionar'}
-                      style={{ 
-                        marginTop: 0, 
-                        padding: '6px 10px', 
-                        fontSize: '0.8rem',
-                        backgroundColor: func.ativo !== false ? '#e53e3e' : '#48bb78',
-                        color: 'white',
-                        border: 'none',
-                        cursor: 'pointer'
-                      }}
-                      onClick={() => handleToggleStatus(func.id, func.ativo)}
-                    >
-                      {func.ativo !== false ? 'Desativar' : 'Ativar'}
-                    </button>
+                      {/* Botão Lápis (Editar) */}
+                      <button
+                        type="button"
+                        title="Editar cadastro"
+                        aria-label="Editar cadastro"
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          backgroundColor: '#ebf8ff',
+                          color: '#3182ce',
+                          fontSize: '0.9rem',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        onClick={() => handleIniciarEdicao(func)}
+                      >
+                        ✏️
+                      </button>
+
+                      {/* Botão PDF */}
+                      <button
+                        type="button"
+                        title="Exportar PDF do funcionário"
+                        aria-label="Exportar PDF do funcionário"
+                        style={{
+                          padding: '0 8px',
+                          height: '32px',
+                          fontSize: '0.75rem',
+                          borderRadius: '6px',
+                          backgroundColor: '#d7e8fe',
+                          color: '#2c309b',
+                          border: 'none',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        onClick={() => exportarPDFFuncionario(func)}
+                      >
+                        Salvar PDF
+                      </button>
+
+                      {/* Botão Ativar/Desativar */}
+                      <button
+                        type="button"
+                        title={func.ativo !== false ? 'Desativar funcionário' : 'Ativar funcionário'}
+                        style={{
+                          padding: '0 8px',
+                          height: '32px',
+                          fontSize: '0.75rem',
+                          borderRadius: '6px',
+                          backgroundColor: func.ativo !== false ? '#fed7d7' : '#c6f6d5',
+                          color: func.ativo !== false ? '#9b2c2c' : '#22543d',
+                          border: 'none',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        onClick={() => handleToggleStatus(func.id, func.ativo)}
+                      >
+                        {func.ativo !== false ? 'Desativar' : 'Ativar'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -270,7 +459,7 @@ export const AdminPanel: React.FC = () => {
         <div className="curso-card" style={{ marginTop: '30px', borderColor: modoEdicao ? '#dd6b20' : '#3182ce', backgroundColor: '#ffffff', padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ margin: 0 }}>
-              {modoEdicao ? ` Editando: ${formEdicao?.nome_completo}` : `Detalhes do Servidor: ${funcionarioDetalhe.nome_completo}`}
+              {modoEdicao ? `Editando: ${formEdicao?.nome_completo}` : `Detalhes do Servidor: ${funcionarioDetalhe.nome_completo}`}
               {funcionarioDetalhe.ativo === false && <span style={{ color: 'red', marginLeft: '10px' }}>(INATIVO)</span>}
             </h3>
 
@@ -299,10 +488,8 @@ export const AdminPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* MODO VISUALIZAÇÃO */}
           {!modoEdicao ? (
             <>
-              {/* 1. DADOS PESSOAIS */}
               <h4 style={{ color: '#2b6cb0', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginTop: '16px' }}>1. Dados Pessoais & Contatos</h4>
               <div className="grid">
                 <div><strong>Nome Completo:</strong> {funcionarioDetalhe.nome_completo}</div>
@@ -319,14 +506,12 @@ export const AdminPanel: React.FC = () => {
                 <div><strong>Contato Emergência:</strong> {funcionarioDetalhe.contato_emergencia_nome || 'Não informado'} ({funcionarioDetalhe.contato_emergencia_telefone || 'Sem fone'})</div>
               </div>
 
-              {/* 2. TURNOS E MATRÍCULAS */}
               <h4 style={{ color: '#2b6cb0', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginTop: '20px' }}>2. Turnos e Matrícula(s)</h4>
               <div className="grid">
                 <div><strong>Turno Manhã:</strong> {funcionarioDetalhe.turno_manha ? 'Sim' : 'Não'} {funcionarioDetalhe.matricula_manha ? `(Matrícula: ${funcionarioDetalhe.matricula_manha})` : ''}</div>
                 <div><strong>Turno Tarde:</strong> {funcionarioDetalhe.turno_tarde ? 'Sim' : 'Não'} {funcionarioDetalhe.matricula_tarde ? `(Matrícula: ${funcionarioDetalhe.matricula_tarde})` : ''}</div>
               </div>
 
-              {/* 3. ENDEREÇO RESIDENCIAL */}
               <h4 style={{ color: '#2b6cb0', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginTop: '20px' }}>3. Endereço Residencial</h4>
               <div className="grid">
                 <div><strong>CEP:</strong> {funcionarioDetalhe.cep || 'Não informado'}</div>
@@ -337,7 +522,6 @@ export const AdminPanel: React.FC = () => {
                 <div><strong>Zona Residencial:</strong> {funcionarioDetalhe.zona_residencial || 'Não informada'}</div>
               </div>
 
-              {/* 4. ESCOLARIDADE E DIPLOMAS */}
               <h4 style={{ color: '#2b6cb0', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginTop: '20px' }}>4. Escolaridade & Diplomas</h4>
               <p><strong>Nível:</strong> {funcionarioDetalhe.escolaridade_nivel || 'Não informado'}</p>
 
@@ -352,7 +536,7 @@ export const AdminPanel: React.FC = () => {
                     {curso.diploma_url && (
                       <div style={{ marginTop: '8px' }}>
                         <a href={curso.diploma_url} target="_blank" rel="noopener noreferrer" style={{ color: '#3182ce', fontWeight: 'bold' }}>
-                          📄 Visualizar Diploma (PDF)
+                          Visualizar Diploma (PDF)
                         </a>
                       </div>
                     )}
@@ -362,12 +546,10 @@ export const AdminPanel: React.FC = () => {
                 <p className="instrucao">Nenhum curso superior cadastrado.</p>
               )}
 
-              {/* 5. SITUAÇÃO FUNCIONAL */}
               <h4 style={{ color: '#2b6cb0', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginTop: '20px' }}>5. Situação Funcional</h4>
               <div><strong>Regime de Contratação:</strong> {funcionarioDetalhe.situacao_funcional || 'Não informado'}</div>
             </>
           ) : (
-            /* MODO DE EDIÇÃO */
             <form onSubmit={handleSalvarEdicao}>
               <h4 style={{ color: '#dd6b20', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>Dados Pessoais & Contato</h4>
               <div className="grid">
@@ -503,7 +685,6 @@ export const AdminPanel: React.FC = () => {
                 </div>
               </div>
 
-              {/* BOTÕES DE AÇÃO DA EDIÇÃO */}
               <div style={{ marginTop: '24px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                 <button
                   type="button"

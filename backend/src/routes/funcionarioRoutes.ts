@@ -5,7 +5,8 @@ import {
   listarFuncionarios, 
   atualizarStatusFuncionario, 
   loginAdmin,
-  atualizarFuncionario
+  atualizarFuncionario,
+  buscarFuncionarioPorCpf
 } from '../controllers/funcionarioController';
 
 const router = Router();
@@ -24,5 +25,6 @@ router.post('/funcionarios', upload.array('diplomas', 3), cadastrarFuncionario);
 router.get('/funcionarios', listarFuncionarios);
 router.put('/funcionarios/:id', atualizarFuncionario);
 router.patch('/funcionarios/:id/status', atualizarStatusFuncionario);
+router.get('/funcionarios/cpf/:cpf', buscarFuncionarioPorCpf);
 
 export default router;

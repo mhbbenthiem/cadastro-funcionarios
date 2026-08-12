@@ -225,3 +225,31 @@ export const loginAdmin = async (req: Request, res: Response): Promise<void> => 
     res.status(401).json({ error: 'Senha incorreta!' });
   }
 };
+
+// Buscar funcionário pelo CPF (Portal do Servidor)
+export const buscarFuncionarioPorCpf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { cpf } = req.params;
+
+    // Remove caracteres não numéricos do CPF recebido
+    const cpfLimpo = cpf.replace(/\D/g, '');
+
+    const { data, error } = await supabase
+      .from('funcionarios')
+      .select('*, cursos_superiores(*)')
+      .eq('cpf', cpfLimpo)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
+      res.status(404).json({ error: 'Nenhum cadastro encontrado para este CPF.' });
+      return;
+    }
+
+    res.status(200).json(data);
+  } catch (error: any) {
+    console.error('Erro ao buscar CPF:', error);
+    res.status(500).json({ error: 'Erro ao buscar cadastro do servidor.' });
+  }
+};
