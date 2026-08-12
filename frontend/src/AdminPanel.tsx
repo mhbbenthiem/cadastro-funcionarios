@@ -225,7 +225,8 @@ export const AdminPanel: React.FC = () => {
       'CPF': f.cpf || '',
       'Telefone': f.telefone_celular || '',
       'Matrícula (Manhã)': f.matricula_manha || '',
-      'Matrícula (Tarde)': f.matricula_tarde || ''
+      'Matrícula (Tarde)': f.matricula_tarde || '',
+      'E-mail': f.email || ''
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dadosFormatados);
